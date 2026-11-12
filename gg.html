@@ -1,0 +1,343 @@
+<DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Monthsary Quest</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#1a1033; --panel:#2a1b54; --pink:#ff4f8b; --yellow:#ffd93d;
+    --cyan:#4de1ff; --green:#5dff8a; --white:#fff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;background:var(--bg);color:var(--white);
+    font-family:'Press Start 2P',monospace;overflow:hidden;touch-action:manipulation}
+  body::before{ /* scanlines */
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:50;
+    background:repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 2px,transparent 2px 4px);
+  }
+  #stars{position:fixed;inset:0;z-index:0}
+  #game{position:relative;z-index:1;max-width:480px;height:100%;margin:0 auto;padding:16px;
+    display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center}
+  .screen{display:none;width:100%;animation:pop .35s ease-out}
+  .screen.active{display:block}
+  @keyframes pop{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
+  h1{font-size:22px;line-height:1.5;color:var(--pink);text-shadow:3px 3px 0 #000,0 0 18px var(--pink)}
+  h2{font-size:14px;line-height:1.6;color:var(--yellow);text-shadow:2px 2px 0 #000;margin-bottom:14px}
+  p,.small{font-size:10px;line-height:1.9}
+  .box{background:var(--panel);border:4px solid var(--white);box-shadow:6px 6px 0 #000;
+    padding:14px;margin:14px 0}
+  .btn{font-family:inherit;font-size:12px;color:#000;background:var(--yellow);
+    border:4px solid #000;box-shadow:0 6px 0 #b8941a,0 6px 0 4px #000;padding:14px 18px;margin-top:14px;
+    cursor:pointer;text-transform:uppercase}
+  .btn:active{transform:translateY(5px);box-shadow:0 1px 0 #b8941a,0 1px 0 4px #000}
+  .btn.pink{background:var(--pink);box-shadow:0 6px 0 #b02d5e,0 6px 0 4px #000;color:#fff}
+  .blink{animation:blink 1s steps(2) infinite}
+  @keyframes blink{50%{opacity:0}}
+  .bounce{display:inline-block;animation:bounce 1s ease-in-out infinite}
+  @keyframes bounce{50%{transform:translateY(-10px)}}
+  .big{font-size:56px}
+
+  /* player cards */
+  .cards{display:flex;gap:10px;justify-content:center}
+  .card{flex:1;background:var(--panel);border:4px solid var(--white);padding:12px 6px;box-shadow:4px 4px 0 #000}
+  .card .av{font-size:40px;margin-bottom:8px}
+  .card .nm{font-size:11px;color:var(--cyan);margin-bottom:8px;word-break:break-word}
+  .bar{height:12px;background:#000;border:2px solid #fff;margin:6px 0;position:relative;overflow:hidden}
+  .bar i{display:block;height:100%;width:0;transition:width 1.5s steps(14)}
+  .hp i{background:var(--pink)} .mp i{background:var(--cyan)}
+  .lvl{color:var(--yellow);font-size:10px;margin-top:8px}
+
+  /* quests */
+  .quest{display:flex;align-items:center;gap:10px;text-align:left;background:var(--panel);
+    border:4px solid #555;padding:12px;margin:10px 0;cursor:pointer;font-size:10px;line-height:1.7;color:#aaa}
+  .quest .ic{font-size:26px;filter:grayscale(1)}
+  .quest.done{border-color:var(--green);color:#fff}
+  .quest.done .ic{filter:none}
+  .quest .tt{color:var(--yellow);display:block;margin-bottom:4px}
+  .quest .tx{display:none}
+  .quest.done .tx{display:block}
+  .quest.done .lock{display:none}
+
+  /* mini game */
+  #hud{display:flex;justify-content:space-between;font-size:10px;margin-bottom:8px}
+  canvas#cv{width:100%;max-width:340px;aspect-ratio:340/440;background:#120a26;
+    border:4px solid #fff;box-shadow:6px 6px 0 #000;touch-action:none;image-rendering:pixelated}
+
+  /* letter */
+  #letter{min-height:150px;text-align:left;font-size:10px;line-height:2.1;white-space:pre-wrap}
+  .cursor::after{content:"█";animation:blink 1s steps(2) infinite}
+  #confetti{position:fixed;inset:0;pointer-events:none;z-index:40}
+  .xp{color:var(--green)}
+</style>
+</head>
+<body>
+<canvas id="stars"></canvas>
+<canvas id="confetti"></canvas>
+
+<div id="game">
+
+  <!-- 1. TITLE -->
+  <section class="screen active" id="s-title">
+    <div class="big bounce">💖</div>
+    <h1 style="margin:16px 0 8px">MONTHSARY<br>QUEST</h1>
+    <p id="t-sub" class="xp"></p>
+    <p class="blink" style="margin-top:30px;color:var(--yellow)">- PRESS START -</p>
+    <button class="btn pink" onclick="go('s-players')">▶ Start Game</button>
+    <p class="small" style="margin-top:20px;color:#9d8bd0">1 PLAYER... no wait, 2 PLAYERS 💕</p>
+  </section>
+
+  <!-- 2. PLAYERS -->
+  <section class="screen" id="s-players">
+    <h2>— PLAYER SELECT —</h2>
+    <div class="cards">
+      <div class="card"><div class="av" id="av1"></div><div class="nm" id="n1"></div>
+        <div class="small">HP</div><div class="bar hp"><i data-w="100"></i></div>
+        <div class="small">LOVE</div><div class="bar mp"><i data-w="100"></i></div>
+        <div class="lvl" id="lv1"></div></div>
+      <div class="card"><div class="av" id="av2"></div><div class="nm" id="n2"></div>
+        <div class="small">HP</div><div class="bar hp"><i data-w="100"></i></div>
+        <div class="small">LOVE</div><div class="bar mp"><i data-w="100"></i></div>
+        <div class="lvl" id="lv2"></div></div>
+    </div>
+    <div class="box"><p id="p-msg"></p></div>
+    <button class="btn" onclick="go('s-quests')">Next ▶</button>
+  </section>
+
+  <!-- 3. QUESTS -->
+  <section class="screen" id="s-quests">
+    <h2>— QUEST LOG —</h2>
+    <p class="small" style="margin-bottom:6px">Tap each quest to unlock the memory!</p>
+    <div id="quest-list"></div>
+    <p class="small" id="q-count" style="margin-top:6px;color:var(--cyan)"></p>
+    <button class="btn" id="q-next" style="display:none" onclick="startMini()">⚔ Boss Level ▶</button>
+  </section>
+
+  <!-- 4. MINI GAME -->
+  <section class="screen" id="s-mini">
+    <h2>— BOSS LEVEL —</h2>
+    <div id="hud"><span id="h-score">❤ 0/15</span><span id="h-lives">LIVES ♥♥♥</span></div>
+    <canvas id="cv" width="340" height="440"></canvas>
+    <p class="small" style="margin-top:10px">Catch 💖 · Dodge 💔 · Drag / ← →</p>
+  </section>
+
+  <!-- 5. WIN -->
+  <section class="screen" id="s-win">
+    <div class="big bounce">🏆</div>
+    <h1 style="font-size:18px;margin:12px 0">LEVEL UP!</h1>
+    <p class="xp" id="w-xp"></p>
+    <div class="box"><div id="letter" class="cursor"></div></div>
+    <button class="btn pink" id="w-btn" style="display:none" onclick="replay()">↻ Play Again</button>
+  </section>
+
+  <!-- game over -->
+  <section class="screen" id="s-over">
+    <div class="big">💔</div>
+    <h1 style="font-size:18px;margin:12px 0">GAME OVER</h1>
+    <p>Just kidding, we never lose.<br>Try again, love!</p>
+    <button class="btn" onclick="startMini()">↻ Retry</button>
+  </section>
+</div>
+
+<script>
+/* ================== ✏️ EDIT THIS PART ================== */
+const CONFIG = {
+  player1: "Demar",       // your name
+  player2: "Shine",       // their name
+  avatar1: "🧑",
+  avatar2: "👩",
+  months: 7,                 // which monthsary is it?
+  date:   "November 13",     // the date you celebrate
+  intro:  "Together we cleared another month of the game of life. Ready to see our stats?",
+  memories: [
+    { icon:"💻", title:"First video call",       text:"The day we first saw each other live. Distance didn't feel so far anymore." },
+    { icon:"📱", title:"Late Night Calls", text:"Staying up way too late just talking about everything." },
+    { icon:"😂", title:"Silly Moments",    text:"All the dumb jokes and laughing until it hurts." },
+    { icon:"🌅", title:"The Day We Meet", text:"A future level we're both saving up for! " }
+  ],
+  letter:
+`Happy 7th Monthsary, lovee lovee!
+
+Every day with you feels like
+unlocking a new achievement.
+Thank you for being my player 2,
+my favorite person, my best ending.
+
+Here's to more levels,
+more memories, and more us.
+
+I love you. Always. 💖`
+};
+/* ======================================================== */
+
+const $ = id => document.getElementById(id);
+const ord = n => n + (n===1 ? " MONTH" : " MONTHS");
+
+/* --- setup text --- */
+$("t-sub").textContent = ord(CONFIG.months) + " UNLOCKED! · " + CONFIG.date.toUpperCase();
+$("av1").textContent = CONFIG.avatar1; $("av2").textContent = CONFIG.avatar2;
+$("n1").textContent = CONFIG.player1;  $("n2").textContent = CONFIG.player2;
+$("lv1").textContent = $("lv2").textContent = "LV." + (CONFIG.months + 1);
+$("p-msg").textContent = CONFIG.intro;
+$("w-xp").textContent = "+" + (CONFIG.months * 1000) + " XP · ACHIEVEMENT: " + ord(CONFIG.months) + " TOGETHER";
+
+/* --- screens --- */
+function go(id){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  $(id).classList.add("active");
+  beep(660,.08);
+  if(id==="s-players") setTimeout(()=>document.querySelectorAll(".bar i").forEach(i=>i.style.width=i.dataset.w+"%"),100);
+  if(id==="s-quests") buildQuests();
+}
+
+/* --- tiny 8-bit sounds --- */
+let actx;
+function beep(freq=440,dur=.1,type="square"){
+  try{
+    actx = actx || new (window.AudioContext||window.webkitAudioContext)();
+    const o=actx.createOscillator(), g=actx.createGain();
+    o.type=type;o.frequency.value=freq;g.gain.value=.05;
+    o.connect(g);g.connect(actx.destination);o.start();
+    g.gain.exponentialRampToValueAtTime(.0001,actx.currentTime+dur);
+    o.stop(actx.currentTime+dur);
+  }catch(e){}
+}
+function jingle(){[523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,.15),i*120));}
+
+/* --- quests --- */
+let doneQuests = new Set();
+function buildQuests(){
+  const list = $("quest-list"); list.innerHTML = "";
+  CONFIG.memories.forEach((m,i)=>{
+    const d = document.createElement("div");
+    d.className = "quest" + (doneQuests.has(i) ? " done":"");
+    d.innerHTML = `<span class="ic">${m.icon}</span><div><span class="tt">${m.title} <span class="lock">🔒</span></span><span class="tx">${m.text}</span></div>`;
+    d.onclick = ()=>{
+      if(!doneQuests.has(i)){doneQuests.add(i);d.classList.add("done");jingle();updateQ();}
+    };
+    list.appendChild(d);
+  });
+  updateQ();
+}
+function updateQ(){
+  const n=doneQuests.size, t=CONFIG.memories.length;
+  $("q-count").textContent = `QUESTS: ${n}/${t}`;
+  $("q-next").style.display = n===t ? "inline-block":"none";
+}
+
+/* --- mini game: catch hearts --- */
+const cv = $("cv"), cx = cv.getContext("2d");
+const W=cv.width, H=cv.height, GOAL=15;
+let hearts, px, score, lives, running=false, spawnT, last;
+const keys = {};
+
+function startMini(){
+  go("s-mini");
+  hearts=[]; px=W/2; score=0; lives=3; spawnT=0; last=performance.now(); running=true;
+  hud(); requestAnimationFrame(loop);
+}
+function hud(){
+  $("h-score").textContent = `❤ ${score}/${GOAL}`;
+  $("h-lives").textContent = "LIVES " + "♥".repeat(Math.max(lives,0));
+}
+function loop(t){
+  if(!running) return;
+  const dt = Math.min((t-last)/1000,.05); last=t;
+  if(keys.ArrowLeft) px-=300*dt;
+  if(keys.ArrowRight) px+=300*dt;
+  px = Math.max(30,Math.min(W-30,px));
+
+  spawnT -= dt;
+  if(spawnT<=0){
+    spawnT = .55 + Math.random()*.4;
+    hearts.push({x:20+Math.random()*(W-40),y:-20,
+      v:110+Math.random()*80+score*5, bad:Math.random()<.28});
+  }
+  hearts.forEach(h=>h.y+=h.v*dt);
+
+  const by=H-40;
+  hearts = hearts.filter(h=>{
+    if(h.y>by-12 && h.y<by+20 && Math.abs(h.x-px)<34){
+      if(h.bad){lives--;beep(120,.25,"sawtooth");}
+      else{score++;beep(880,.08);}
+      hud(); return false;
+    }
+    return h.y<H+20;
+  });
+
+  draw();
+  if(score>=GOAL){running=false;win();return;}
+  if(lives<=0){running=false;go("s-over");return;}
+  requestAnimationFrame(loop);
+}
+function draw(){
+  cx.clearRect(0,0,W,H);
+  cx.font="26px serif";cx.textAlign="center";cx.textBaseline="middle";
+  hearts.forEach(h=>cx.fillText(h.bad?"💔":"💖",h.x,h.y));
+  cx.font="40px serif";
+  cx.fillText("🧺",px,H-36);
+}
+function moveTo(clientX){
+  const r = cv.getBoundingClientRect();
+  px = (clientX-r.left)/r.width*W;
+}
+cv.addEventListener("pointermove",e=>moveTo(e.clientX));
+cv.addEventListener("pointerdown",e=>{moveTo(e.clientX);cv.setPointerCapture(e.pointerId);});
+addEventListener("keydown",e=>{keys[e.key]=true;});
+addEventListener("keyup",e=>{keys[e.key]=false;});
+
+/* --- win + typed letter --- */
+function win(){
+  go("s-win"); jingle(); setTimeout(jingle,600); confettiBurst();
+  const text = CONFIG.letter.replace("{months}",CONFIG.months);
+  const el = $("letter"); el.textContent=""; el.classList.add("cursor");
+  $("w-btn").style.display="none";
+  let i=0;
+  const iv = setInterval(()=>{
+    el.textContent = text.slice(0,++i);
+    if(i%3===0) beep(900,.02);
+    if(i>=text.length){clearInterval(iv);el.classList.remove("cursor");$("w-btn").style.display="inline-block";}
+  },45);
+}
+function replay(){doneQuests.clear();go("s-title");}
+
+/* --- starfield background --- */
+const sc=$("stars"), sx=sc.getContext("2d");
+let stars=[];
+function sizeStars(){
+  sc.width=innerWidth;sc.height=innerHeight;
+  stars=Array.from({length:70},()=>({x:Math.random()*sc.width,y:Math.random()*sc.height,
+    s:Math.random()*2+1,v:Math.random()*20+8}));
+}
+sizeStars();addEventListener("resize",sizeStars);
+(function tick(){
+  sx.clearRect(0,0,sc.width,sc.height);
+  sx.fillStyle="#fff";
+  stars.forEach(s=>{
+    s.y+=s.v/60; if(s.y>sc.height){s.y=0;s.x=Math.random()*sc.width;}
+    sx.globalAlpha=.4+Math.random()*.4;
+    sx.fillRect(s.x,s.y,s.s,s.s);
+  });
+  requestAnimationFrame(tick);
+})();
+
+/* --- confetti --- */
+const cc=$("confetti"), cfx=cc.getContext("2d");
+let bits=[];
+function confettiBurst(){
+  cc.width=innerWidth;cc.height=innerHeight;
+  const cols=["#ff4f8b","#ffd93d","#4de1ff","#5dff8a","#fff"];
+  for(let i=0;i<140;i++) bits.push({x:cc.width/2,y:cc.height/3,
+    vx:(Math.random()-.5)*14,vy:Math.random()*-14-2,
+    c:cols[i%cols.length],s:Math.random()*6+4,life:140});
+  (function f(){
+    cfx.clearRect(0,0,cc.width,cc.height);
+    bits=bits.filter(b=>b.life-->0);
+    bits.forEach(b=>{b.x+=b.vx;b.y+=b.vy;b.vy+=.35;cfx.fillStyle=b.c;cfx.fillRect(b.x,b.y,b.s,b.s);});
+    if(bits.length) requestAnimationFrame(f); else cfx.clearRect(0,0,cc.width,cc.height);
+  })();
+}
+</script>
+</body>
+</html>
